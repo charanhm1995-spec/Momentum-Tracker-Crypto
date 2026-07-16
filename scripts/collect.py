@@ -8,6 +8,7 @@ No API key needed - this only reads public market data.
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 
 TICKERS_URL = "https://api.bybit.com/v5/market/tickers?category=linear"
@@ -21,9 +22,17 @@ def is_perp(symbol: str) -> bool:
 
 
 def fetch_snapshot():
-    req = urllib.request.Request(TICKERS_URL, headers={"User-Agent": "momentum-collector"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        payload = json.loads(resp.read().decode())
+    req = urllib.request.Request(TICKERS_URL, headers={"User-Agent": "Mozilla/5.0 (momentum-collector)"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            payload = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:500]
+        print(f"HTTP {e.code} from Bybit. Response body: {body}")
+        raise
+    except urllib.error.URLError as e:
+        print(f"Network/URL error reaching Bybit: {e.reason}")
+        raise
 
     if payload.get("retCode") != 0:
         raise RuntimeError(f"Bybit API error: {payload.get('retMsg')}")
